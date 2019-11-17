@@ -11,13 +11,16 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.current_song_bottom_sheet.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -39,6 +42,8 @@ class MainActivity : AppCompatActivity() {
             getMp3Songs()
             updateAdapter()
         }
+
+        setBottomSheetBehavior()
     }
 
     private fun updateAdapter() {
@@ -58,9 +63,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkPermissions(
-        context: Context
-    ): Boolean {
+    private fun setBottomSheetBehavior() {
+        val behavior = BottomSheetBehavior.from(bottom_sheet)
+        behavior.isFitToContents = false
+    }
+
+    private fun checkPermissions(context: Context): Boolean {
         val currentAPIVersion = Build.VERSION.SDK_INT
         if (currentAPIVersion >= Build.VERSION_CODES.M) {
             if (ContextCompat.checkSelfPermission(
@@ -70,8 +78,7 @@ class MainActivity : AppCompatActivity() {
             ) {
                 if (ActivityCompat.shouldShowRequestPermissionRationale(
                         context as Activity,
-                        READ_EXTERNAL_STORAGE
-                    )
+                        READ_EXTERNAL_STORAGE)
                 ) {
                     showDialog()
                 } else {
@@ -86,33 +93,15 @@ class MainActivity : AppCompatActivity() {
             } else {
                 return true
             }
-
         } else {
             return true
         }
     }
 
-    private fun showDialog(
-    ) {
-        val alertBuilder = AlertDialog.Builder(this)
-        alertBuilder.setCancelable(true)
-        alertBuilder.setTitle("Permission necessary")
-        alertBuilder.setMessage("File permission is necessary")
-        alertBuilder.setPositiveButton(android.R.string.yes
-        ) { _, _ ->
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(),
-                REQUEST_READ_EXTERNAL_STORAGE
-            )
-        }
-        val alert = alertBuilder.create()
-        alert.show()
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<String>, grantResults: IntArray
+        permissions: Array<String>,
+        grantResults: IntArray
     ) {
         when (requestCode) {
             REQUEST_READ_EXTERNAL_STORAGE -> if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -130,12 +119,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showDialog() {
+        val alertBuilder = AlertDialog.Builder(this)
+        alertBuilder.setCancelable(true)
+        alertBuilder.setTitle("Permission necessary")
+        alertBuilder.setMessage("File permission is necessary")
+        alertBuilder.setPositiveButton(android.R.string.yes
+        ) { _, _ ->
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(),
+                REQUEST_READ_EXTERNAL_STORAGE
+            )
+        }
+        val alert = alertBuilder.create()
+        alert.show()
+    }
+
     private fun getMp3Songs() {
         val allSongsUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val selectionMimeType = MediaStore.Files.FileColumns.MIME_TYPE + "=?"
         val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension("mp3")
         val selectionArgsMp3 = arrayOf(mimeType)
-        val cursor = this.contentResolver.query(allSongsUri, null, selectionMimeType, selectionArgsMp3, null)
+        val cursor =
+            this.contentResolver.query(allSongsUri, null, selectionMimeType, selectionArgsMp3, null)
 
         if (cursor != null) {
             if (cursor.moveToFirst()) {
@@ -151,10 +158,15 @@ class MainActivity : AppCompatActivity() {
                     )
 
                     val sArtworkUri = Uri.parse("content://media/external/audio/albumart")
-                    val albumArtUri = ContentUris.withAppendedId(sArtworkUri, cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)).toLong())
+                    val albumArtUri = ContentUris.withAppendedId(
+                        sArtworkUri,
+                        cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)).toLong()
+                    )
 
                     song.art = albumArtUri
-                    songsList.add(song)
+                    for (i in 1..10) {
+                        songsList.add(song)
+                    }
                 } while (cursor.moveToNext())
             }
             cursor.close()
