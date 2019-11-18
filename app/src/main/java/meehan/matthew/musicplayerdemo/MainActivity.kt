@@ -3,15 +3,18 @@ package meehan.matthew.musicplayerdemo
 import android.Manifest.permission.READ_EXTERNAL_STORAGE
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.browse.MediaBrowser
+import android.media.session.MediaController
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
-import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -20,12 +23,16 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.current_song_bottom_sheet.*
 
 class MainActivity : AppCompatActivity() {
 
-    private val songsList = ArrayList<Song>()
-
+    private lateinit var mediaBrowser: MediaBrowser
+    private val callback: MediaBrowser.SubscriptionCallback = object : MediaBrowser.SubscriptionCallback(){
+        override fun onChildrenLoaded(parentId: String, children: MutableList<MediaBrowser.MediaItem>) {
+            super.onChildrenLoaded(parentId, children)
+            updateAdapter(children)
+        }
+    }
     private lateinit var songAdapter: SongRecyclerAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,20 +40,39 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         setupUI()
+
+        if (checkPermissions(this)) {
+            createMediaBrowser()
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (checkPermissions(this)) {
+            mediaBrowser.connect()
+            mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (checkPermissions(this)) {
+            mediaBrowser.unsubscribe(MusicPlayerService.MUSIC_ROOT_ID)
+            mediaBrowser.disconnect()
+        }
+    }
+
+    public override fun onResume() {
+        super.onResume()
+        volumeControlStream = AudioManager.STREAM_MUSIC
     }
 
     private fun setupUI() {
         setupRecyclerView()
-
-        if (checkPermissions(this)) {
-            getMp3Songs()
-            updateAdapter()
-        }
-
         setBottomSheetBehavior()
     }
 
-    private fun updateAdapter() {
+    private fun updateAdapter(songsList: MutableList<MediaBrowser.MediaItem>) {
         songAdapter = SongRecyclerAdapter(songsList)
         song_recycler.adapter = songAdapter
     }
@@ -105,7 +131,8 @@ class MainActivity : AppCompatActivity() {
     ) {
         when (requestCode) {
             REQUEST_READ_EXTERNAL_STORAGE -> if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-               getMp3Songs()
+                createMediaBrowser()
+                mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
             } else {
                 Toast.makeText(
                     this, "Permission Denied",
@@ -136,41 +163,30 @@ class MainActivity : AppCompatActivity() {
         alert.show()
     }
 
-    private fun getMp3Songs() {
-        val allSongsUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val selectionMimeType = MediaStore.Files.FileColumns.MIME_TYPE + "=?"
-        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension("mp3")
-        val selectionArgsMp3 = arrayOf(mimeType)
-        val cursor =
-            this.contentResolver.query(allSongsUri, null, selectionMimeType, selectionArgsMp3, null)
+    private fun createMediaBrowser() {
+        mediaBrowser = MediaBrowser(
+            this,
+            ComponentName(this, MusicPlayerService::class.java),
+            object : MediaBrowser.ConnectionCallback() {
+                override fun onConnected() {
+                    super.onConnected()
 
-        if (cursor != null) {
-            if (cursor.moveToFirst()) {
-                do {
-                    val song = Song(
-                        cursor.getInt(cursor.getColumnIndex(MediaStore.Audio.Media._ID)),
-                        cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)),
-                        cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)),
-                        cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM)),
-                        cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)),
-                        Uri.EMPTY,
-                        cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DURATION))
-                    )
+                    // Get the token for the MediaSession
+                    mediaBrowser.sessionToken.also { token ->
 
-                    val sArtworkUri = Uri.parse("content://media/external/audio/albumart")
-                    val albumArtUri = ContentUris.withAppendedId(
-                        sArtworkUri,
-                        cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)).toLong()
-                    )
+                        // Create a MediaControllerCompat
+                        val mediaController = MediaController(
+                            this@MainActivity, // Context
+                            token
+                        )
 
-                    song.art = albumArtUri
-                    for (i in 1..10) {
-                        songsList.add(song)
+                        // Save the controller
+                        this@MainActivity.mediaController = mediaController
                     }
-                } while (cursor.moveToNext())
-            }
-            cursor.close()
-        }
+                }
+            },
+            null
+        )
     }
 
     companion object {
