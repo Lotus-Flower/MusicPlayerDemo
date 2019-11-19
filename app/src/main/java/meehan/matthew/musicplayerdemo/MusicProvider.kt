@@ -12,9 +12,9 @@ import android.webkit.MimeTypeMap
 
 class MusicProvider(private val context: Context) {
 
-    private val songsList = ArrayList<MediaBrowser.MediaItem>()
+    val songsList = ArrayList<MediaBrowser.MediaItem>()
 
-    fun getMp3Songs(result: MediaBrowserService.Result<MutableList<MediaBrowser.MediaItem>>) {
+    fun getMp3Songs() {
         val allSongsUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val selectionMimeType = MediaStore.Files.FileColumns.MIME_TYPE + "=?"
         val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension("mp3")
@@ -38,14 +38,18 @@ class MusicProvider(private val context: Context) {
                 } while (cursor.moveToNext())
             }
             cursor.close()
-            result.sendResult(songsList)
         }
+    }
+
+    fun sendMediaResults(result: MediaBrowserService.Result<MutableList<MediaBrowser.MediaItem>>) {
+        result.sendResult(songsList)
     }
 
     private fun getMetadata(cursor: Cursor, albumArtUri: Uri): MediaMetadata? {
         val metadataBuilder = MediaMetadata.Builder()
 
         metadataBuilder.putString(MediaMetadata.METADATA_KEY_MEDIA_ID, cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media._ID)))
+        metadataBuilder.putString(MediaMetadata.METADATA_KEY_MEDIA_URI, cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA)))
         metadataBuilder.putString(MediaMetadata.METADATA_KEY_TITLE, cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)))
         metadataBuilder.putString(MediaMetadata.METADATA_KEY_ARTIST, cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)))
         metadataBuilder.putString(MediaMetadata.METADATA_KEY_ALBUM, cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM)))

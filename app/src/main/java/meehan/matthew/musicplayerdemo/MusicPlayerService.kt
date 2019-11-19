@@ -1,5 +1,6 @@
 package meehan.matthew.musicplayerdemo
 
+import android.media.MediaPlayer
 import android.media.browse.MediaBrowser
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
@@ -9,7 +10,7 @@ import android.service.media.MediaBrowserService
 class MusicPlayerService : MediaBrowserService() {
 
     private var musicProvider: MusicProvider = MusicProvider(this)
-    private var mediaSession: MediaSession? = null
+    private lateinit var mediaSession: MediaSession
     private lateinit var stateBuilder: PlaybackState.Builder
 
     override fun onCreate() {
@@ -36,10 +37,15 @@ class MusicPlayerService : MediaBrowserService() {
             // Set the session's token so that client activities can communicate with it.
             setSessionToken(sessionToken)
         }
+
+        val mediaSessionManager = MediaSessionManager(MediaPlayer(), musicProvider, this)
+
+        mediaSession.setCallback(mediaSessionManager)
     }
 
     override fun onLoadChildren(p0: String, p1: Result<MutableList<MediaBrowser.MediaItem>>) {
-        musicProvider.getMp3Songs(p1)
+        musicProvider.getMp3Songs()
+        musicProvider.sendMediaResults(p1)
     }
 
     override fun onGetRoot(p0: String, p1: Int, p2: Bundle?): BrowserRoot? {

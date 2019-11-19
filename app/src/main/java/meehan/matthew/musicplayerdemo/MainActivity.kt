@@ -8,6 +8,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.media.MediaPlayer
 import android.media.browse.MediaBrowser
 import android.media.session.MediaController
 import android.net.Uri
@@ -19,10 +20,12 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.current_song_bottom_sheet.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -70,6 +73,10 @@ class MainActivity : AppCompatActivity() {
     private fun setupUI() {
         setupRecyclerView()
         setBottomSheetBehavior()
+        current_song_play_button.setOnClickListener {
+            mediaController.transportControls.prepare()
+            mediaController.transportControls.play()
+        }
     }
 
     private fun updateAdapter(songsList: MutableList<MediaBrowser.MediaItem>) {

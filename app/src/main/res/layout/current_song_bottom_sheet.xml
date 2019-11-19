@@ -58,6 +58,7 @@
 
         </LinearLayout>
         <ImageView
+            android:id="@+id/current_song_play_button"
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:padding="8dp"
