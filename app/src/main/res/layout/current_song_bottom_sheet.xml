@@ -27,6 +27,7 @@
             app:layout_constraintTop_toTopOf="@+id/current_song_constraint_layout">
 
             <ImageView
+                android:id="@+id/current_song_image_view"
                 android:layout_width="64dp"
                 android:layout_height="64dp"
                 android:contentDescription="@string/app_name"
@@ -41,6 +42,7 @@
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/current_song_title_text_view"
                     android:textAppearance="@style/TextAppearance.AppCompat.Large"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -48,6 +50,7 @@
                 </TextView>
 
                 <TextView
+                    android:id="@+id/current_song_artist_text_view"
                     android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

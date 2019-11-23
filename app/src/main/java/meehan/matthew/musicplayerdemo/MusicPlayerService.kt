@@ -38,7 +38,7 @@ class MusicPlayerService : MediaBrowserService() {
             setSessionToken(sessionToken)
         }
 
-        val mediaSessionManager = MediaSessionManager(MediaPlayer(), musicProvider, this)
+        val mediaSessionManager = MediaSessionManager(MediaPlayer(), mediaSession, musicProvider, this)
 
         mediaSession.setCallback(mediaSessionManager)
     }
