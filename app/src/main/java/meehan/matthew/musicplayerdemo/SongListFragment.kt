@@ -42,21 +42,12 @@ class SongListFragment : Fragment() {
     private val controllerCallback: MediaController.Callback = object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?) {
             super.onMetadataChanged(metadata)
-            current_song_image_view.setImageURI(metadata?.description?.iconUri)
-            current_song_title_text_view.text = metadata?.description?.title
-            current_song_artist_text_view.text = metadata?.description?.subtitle
+            setupMetadataUI(metadata)
         }
 
         override fun onPlaybackStateChanged(state: PlaybackState?) {
             super.onPlaybackStateChanged(state)
-            when (requireActivity().mediaController?.playbackState?.state) {
-                PlaybackState.STATE_PAUSED -> {
-                    current_song_play_button.setImageDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.ic_play_arrow_black_24dp))
-                }
-                PlaybackState.STATE_PLAYING -> {
-                    current_song_play_button.setImageDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.ic_pause_black_24dp))
-                }
-            }
+            setupButtonUI()
         }
     }
 
@@ -80,7 +71,6 @@ class SongListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         (requireActivity() as AppCompatActivity).supportActionBar?.setDisplayHomeAsUpEnabled(false)
-
 
         setupUI()
     }
@@ -106,7 +96,6 @@ class SongListFragment : Fragment() {
                 .supportFragmentManager
                 ?.beginTransaction()
                 ?.replace(R.id.main_activity_frame_layout, NowPlayingFragment())
-                ?.addToBackStack(null)
                 ?.commit()
         }
     }
@@ -138,12 +127,15 @@ class SongListFragment : Fragment() {
         if (checkPermissions()) {
             mediaBrowser.connect()
             mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
+            requireActivity().mediaController?.registerCallback(controllerCallback)
+            setupButtonUI()
         }
     }
 
     override fun onStop() {
         super.onStop()
         if (checkPermissions()) {
+            requireActivity().mediaController?.unregisterCallback(controllerCallback)
             mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
             mediaBrowser.disconnect()
         }
@@ -165,15 +157,19 @@ class SongListFragment : Fragment() {
                     // Get the token for the MediaSession
                     mediaBrowser.sessionToken.also { token ->
 
-                        // Create a MediaControllerCompat
-                        val mediaController = MediaController(
-                            this@SongListFragment.requireContext(), // Context
-                            token
-                        )
+                        if (requireActivity().mediaController == null) {
+                            // Create a MediaControllerCompat
+                            val mediaController = MediaController(
+                                this@SongListFragment.requireContext(), // Context
+                                token
+                            )
 
-                        mediaController.registerCallback(controllerCallback)
-                        // Save the controller
-                        requireActivity().mediaController = mediaController
+                            mediaController.registerCallback(controllerCallback)
+                            // Save the controller
+                            requireActivity().mediaController = mediaController
+                        } else {
+                            requireActivity().mediaController?.registerCallback(controllerCallback)
+                        }
                     }
                 }
             },
@@ -249,6 +245,27 @@ class SongListFragment : Fragment() {
         }
         val alert = alertBuilder.create()
         alert.show()
+    }
+
+    private fun setupMetadataUI(metadata: MediaMetadata?) {
+        current_song_image_view.setImageURI(metadata?.description?.iconUri)
+        current_song_title_text_view.text = metadata?.description?.title
+        current_song_artist_text_view.text = metadata?.description?.subtitle
+    }
+
+    private fun setupButtonUI() {
+        when (requireActivity().mediaController?.playbackState?.state) {
+            PlaybackState.STATE_PAUSED -> {
+                current_song_play_button.setImageDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.ic_play_arrow_black_24dp))
+            }
+            PlaybackState.STATE_PLAYING -> {
+                current_song_play_button.setImageDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.ic_pause_black_24dp))
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 
     companion object {

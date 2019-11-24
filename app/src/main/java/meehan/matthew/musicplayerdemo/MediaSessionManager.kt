@@ -21,19 +21,22 @@ class MediaSessionManager(
     override fun onPrepare() {
         super.onPrepare()
 
-        currentSong = musicProvider.songsList.firstOrNull()
+        if (currentSong == null) {
+            currentSong = musicProvider.songsList.firstOrNull()
+
+            currentSong?.description?.mediaUri?.let {
+                player.reset()
+                player.setDataSource(context, it)
+                player.prepare()
+            }
+
+            player.setOnCompletionListener {
+                onSkipToNext()
+            }
+            setSessionPlaybackState(PlaybackState.STATE_PAUSED)
+        }
 
         setMetadata()
-
-        currentSong?.description?.mediaUri?.let {
-            player.setDataSource(context, it)
-            player.prepare()
-        }
-
-        player.setOnCompletionListener {
-            onSkipToNext()
-        }
-        setSessionPlaybackState(PlaybackState.STATE_PAUSED)
     }
 
     override fun onPrepareFromUri(uri: Uri?, extras: Bundle?) {

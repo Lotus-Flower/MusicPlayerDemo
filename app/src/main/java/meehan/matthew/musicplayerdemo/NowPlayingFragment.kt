@@ -1,6 +1,5 @@
 package meehan.matthew.musicplayerdemo
 
-import android.app.Activity
 import android.content.ComponentName
 import android.media.AudioManager
 import android.media.MediaMetadata
@@ -9,14 +8,12 @@ import android.media.session.MediaController
 import android.media.session.PlaybackState
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import kotlinx.android.synthetic.main.fragment_now_playing.*
-import kotlinx.android.synthetic.main.fragment_song_list.*
 
 class NowPlayingFragment : Fragment() {
 
@@ -30,22 +27,12 @@ class NowPlayingFragment : Fragment() {
     private val controllerCallback: MediaController.Callback = object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?) {
             super.onMetadataChanged(metadata)
-
-            now_playing_title_text_view.text = metadata?.description?.title
-            now_playing_artist_text_view.text = metadata?.description?.subtitle
-            now_playing_image_view.setImageURI(metadata?.description?.iconUri)
+            setupMetadataUI(metadata)
         }
 
         override fun onPlaybackStateChanged(state: PlaybackState?) {
             super.onPlaybackStateChanged(state)
-            when (requireActivity().mediaController?.playbackState?.state) {
-                PlaybackState.STATE_PAUSED -> {
-                    now_playing_play_button.setImageDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.ic_play_arrow_black_24dp))
-                }
-                PlaybackState.STATE_PLAYING -> {
-                    now_playing_play_button.setImageDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.ic_pause_black_24dp))
-                }
-            }
+            updateButtonUI()
         }
     }
 
@@ -61,6 +48,8 @@ class NowPlayingFragment : Fragment() {
 
         mediaBrowser.connect()
         mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
+        requireActivity().mediaController?.registerCallback(controllerCallback)
+        updateButtonUI()
     }
 
     override fun onResume() {
@@ -71,6 +60,7 @@ class NowPlayingFragment : Fragment() {
     override fun onStop() {
         super.onStop()
 
+        requireActivity().mediaController?.unregisterCallback(controllerCallback)
         mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
         mediaBrowser.disconnect()
     }
@@ -111,6 +101,23 @@ class NowPlayingFragment : Fragment() {
         }
     }
 
+    private fun updateButtonUI() {
+        when (requireActivity().mediaController?.playbackState?.state) {
+            PlaybackState.STATE_PAUSED -> {
+                now_playing_play_button.setImageDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.ic_play_arrow_black_24dp))
+            }
+            PlaybackState.STATE_PLAYING -> {
+                now_playing_play_button.setImageDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.ic_pause_black_24dp))
+            }
+        }
+    }
+
+    private fun setupMetadataUI(metadata: MediaMetadata?) {
+        now_playing_title_text_view.text = metadata?.description?.title
+        now_playing_artist_text_view.text = metadata?.description?.subtitle
+        now_playing_image_view.setImageURI(metadata?.description?.iconUri)
+    }
+
     private fun createMediaBrowser() {
         mediaBrowser = MediaBrowser(
             context,
@@ -122,19 +129,27 @@ class NowPlayingFragment : Fragment() {
                     // Get the token for the MediaSession
                     mediaBrowser.sessionToken.also { token ->
 
-                        // Create a MediaControllerCompat
-                        val mediaController = MediaController(
-                            this@NowPlayingFragment.requireContext(), // Context
-                            token
-                        )
+                        if (requireActivity().mediaController == null) {
+                            // Create a MediaControllerCompat
+                            val mediaController = MediaController(
+                                this@NowPlayingFragment.requireContext(), // Context
+                                token
+                            )
 
-                        mediaController.registerCallback(controllerCallback)
-                        // Save the controller
-                        requireActivity().mediaController = mediaController
+                            mediaController.registerCallback(controllerCallback)
+                            // Save the controller
+                            requireActivity().mediaController = mediaController
+                        } else {
+                            requireActivity().mediaController.registerCallback(controllerCallback)
+                        }
                     }
                 }
             },
             null
         )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 }

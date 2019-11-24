@@ -9,7 +9,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        supportFragmentManager.beginTransaction().add(R.id.main_activity_frame_layout, SongListFragment()).commit()
+        supportFragmentManager.beginTransaction().replace(R.id.main_activity_frame_layout, SongListFragment()).addToBackStack(null).commit()
     }
 
     override fun onOptionsItemSelected(item: MenuItem?): Boolean {
