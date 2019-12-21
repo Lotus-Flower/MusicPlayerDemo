@@ -1,6 +1,7 @@
 package meehan.matthew.musicplayerdemo
 
-import android.content.Context
+import android.app.Notification
+import android.content.Intent
 import android.media.MediaMetadata
 import android.media.MediaPlayer
 import android.media.browse.MediaBrowser
@@ -8,15 +9,24 @@ import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.net.Uri
 import android.os.Bundle
+import android.support.v4.media.session.PlaybackStateCompat
+import android.view.KeyEvent
+import androidx.core.content.ContextCompat
+import java.util.*
 
 class MediaSessionManager(
     private val player: MediaPlayer,
     private val mediaSession: MediaSession,
     private val musicProvider: MusicProvider,
-    private val context: Context
+    private val notificationManager: MusicNotificationManager,
+    private val musicPlayerService: MusicPlayerService
 ) : MediaSession.Callback() {
 
     private var currentSong: MediaBrowser.MediaItem? = null
+    private var timer: Timer = Timer()
+
+    private var serviceInStartedState: Boolean = false
+    private var notification: Notification? = null
 
     override fun onPrepare() {
         super.onPrepare()
@@ -26,7 +36,7 @@ class MediaSessionManager(
 
             currentSong?.description?.mediaUri?.let {
                 player.reset()
-                player.setDataSource(context, it)
+                player.setDataSource(musicPlayerService, it)
                 player.prepare()
             }
 
@@ -39,12 +49,13 @@ class MediaSessionManager(
         setMetadata()
     }
 
-    override fun onPrepareFromUri(uri: Uri?, extras: Bundle?) {
-        super.onPrepareFromUri(uri, extras)
+    override fun onPlayFromUri(uri: Uri?, extras: Bundle?) {
+        super.onPlayFromUri(uri, extras)
         uri?.let {
             player.reset()
-            player.setDataSource(context, uri)
+            player.setDataSource(musicPlayerService, uri)
             player.prepare()
+            setMetadata()
             onPlay()
         }
     }
@@ -53,12 +64,17 @@ class MediaSessionManager(
         super.onPlay()
         player.start()
         setSessionPlaybackState(PlaybackState.STATE_PLAYING)
+        mediaSession.isActive = true
+        startMusicProgress()
+        if (serviceInStartedState) startService() else updateNotification()
     }
 
     override fun onPause() {
         super.onPause()
         player.pause()
         setSessionPlaybackState(PlaybackState.STATE_PAUSED)
+        stopMusicProgress()
+        pauseNotification()
     }
 
     override fun onSkipToNext() {
@@ -67,7 +83,7 @@ class MediaSessionManager(
             currentSong = musicProvider.songsList[musicProvider.songsList.indexOf(currentSong) + 1]
             currentSong?.description?.mediaUri?.let {
                 player.reset()
-                player.setDataSource(context, it)
+                player.setDataSource(musicPlayerService, it)
                 player.prepare()
                 setMetadata()
                 onPlay()
@@ -81,11 +97,25 @@ class MediaSessionManager(
             currentSong = musicProvider.songsList[musicProvider.songsList.indexOf(currentSong) - 1]
             currentSong?.description?.mediaUri?.let {
                 player.reset()
-                player.setDataSource(context, it)
+                player.setDataSource(musicPlayerService, it)
                 player.prepare()
                 setMetadata()
                 onPlay()
             }
+        }
+    }
+
+    override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
+        super.onPlayFromMediaId(mediaId, extras)
+        currentSong = musicProvider.songsList.find {
+            it.mediaId == mediaId
+        }
+        currentSong?.description?.mediaUri?.let {
+            player.reset()
+            player.setDataSource(musicPlayerService, it)
+            player.prepare()
+            setMetadata()
+            onPlay()
         }
     }
 
@@ -96,7 +126,7 @@ class MediaSessionManager(
         }
         currentSong?.description?.mediaUri?.let {
             player.reset()
-            player.setDataSource(context, it)
+            player.setDataSource(musicPlayerService, it)
             player.prepare()
             onPlay()
         }
@@ -107,11 +137,17 @@ class MediaSessionManager(
         player.release()
     }
 
+    override fun onSeekTo(pos: Long) {
+        super.onSeekTo(pos)
+        player.seekTo(pos.toInt())
+    }
+
     private fun setMetadata() {
         mediaSession.setMetadata(MediaMetadata.Builder()
             .putString(MediaMetadata.METADATA_KEY_TITLE, currentSong?.description?.title.toString())
             .putString(MediaMetadata.METADATA_KEY_ARTIST, currentSong?.description?.subtitle.toString())
             .putString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI, currentSong?.description?.iconUri.toString())
+            .putLong(MediaMetadata.METADATA_KEY_DURATION, player.duration.toLong())
             .build())
     }
 
@@ -119,4 +155,75 @@ class MediaSessionManager(
         mediaSession.setPlaybackState(PlaybackState.Builder().setState(playbackState, player.currentPosition.toLong(), player.playbackParams.speed).build())
     }
 
+    private fun startService() {
+        ContextCompat.startForegroundService(musicPlayerService, Intent(musicPlayerService, MusicPlayerService::class.java))
+        serviceInStartedState = true
+        playNotification()
+    }
+
+    private fun playNotification() {
+
+        notification = notificationManager.getNotification(currentSong?.description?.title.toString(),
+            currentSong?.description?.subtitle.toString(), mediaSession.sessionToken,
+            PlaybackStateCompat.STATE_PLAYING)
+
+        notification?.let { musicPlayerService.startForeground(MusicNotificationManager.NOTIFICATION_ID, it) }
+    }
+
+    private fun updateNotification() {
+
+       notification = notificationManager.getNotification(currentSong?.description?.title.toString(),
+           currentSong?.description?.subtitle.toString(), mediaSession.sessionToken,
+           PlaybackStateCompat.STATE_PLAYING)
+
+        notification?.let { notificationManager.notificationManager.notify(MusicNotificationManager.NOTIFICATION_ID, it) }
+    }
+
+    private fun pauseNotification() {
+        notification = notificationManager.getNotification(currentSong?.description?.title.toString(),
+            currentSong?.description?.subtitle.toString(), mediaSession.sessionToken,
+            PlaybackStateCompat.STATE_PAUSED)
+
+        notification?.let {
+            notificationManager.notificationManager.notify(MusicNotificationManager.NOTIFICATION_ID, it)
+            musicPlayerService.stopForeground(false)
+            serviceInStartedState = false
+        }
+    }
+
+    private fun startMusicProgress() {
+        timer = Timer()
+        timer.schedule(object : TimerTask() {
+            override fun run() {
+                val bundle = Bundle()
+                bundle.putInt(MusicPlayerService.MUSIC_PROGRESS_UPDATE, player.currentPosition)
+                mediaSession.sendSessionEvent(MusicPlayerService.MUSIC_PROGRESS_UPDATE, bundle)
+            }
+        }, 0, 1000)
+    }
+
+    private fun stopMusicProgress() {
+        timer.cancel()
+    }
+
+    override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
+        val keyEvent: KeyEvent = mediaButtonEvent?.extras?.get(Intent.EXTRA_KEY_EVENT) as KeyEvent
+        when (keyEvent.action == KeyEvent.ACTION_DOWN) {
+            true -> {
+                when (keyEvent.keyCode) {
+                    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                        when (mediaSession.controller.playbackState?.state) {
+                            PlaybackState.STATE_PLAYING -> this.onPause()
+                            PlaybackState.STATE_PAUSED -> this.onPlay()
+                        }
+                    }
+                    KeyEvent.KEYCODE_MEDIA_PLAY -> this.onPlay()
+                    KeyEvent.KEYCODE_MEDIA_PAUSE -> this.onPause()
+                    KeyEvent.KEYCODE_MEDIA_NEXT -> this.onSkipToNext()
+                    KeyEvent.KEYCODE_MEDIA_PREVIOUS -> this.onSkipToPrevious()
+                }
+            }
+        }
+        return super.onMediaButtonEvent(mediaButtonEvent)
+    }
 }

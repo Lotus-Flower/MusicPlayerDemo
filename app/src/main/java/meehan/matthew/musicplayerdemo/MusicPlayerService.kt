@@ -1,17 +1,20 @@
 package meehan.matthew.musicplayerdemo
 
+import android.content.Intent
 import android.media.MediaPlayer
 import android.media.browse.MediaBrowser
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Bundle
 import android.service.media.MediaBrowserService
+import androidx.media.session.MediaButtonReceiver
 
 class MusicPlayerService : MediaBrowserService() {
 
     private var musicProvider: MusicProvider = MusicProvider(this)
     private lateinit var mediaSession: MediaSession
     private lateinit var stateBuilder: PlaybackState.Builder
+    private lateinit var mediaSessionManager: MediaSessionManager
 
     override fun onCreate() {
         super.onCreate()
@@ -38,9 +41,16 @@ class MusicPlayerService : MediaBrowserService() {
             setSessionToken(sessionToken)
         }
 
-        val mediaSessionManager = MediaSessionManager(MediaPlayer(), mediaSession, musicProvider, this)
+        val notificationManager = MusicNotificationManager(this)
+
+        mediaSessionManager = MediaSessionManager(MediaPlayer(), mediaSession, musicProvider, notificationManager, this)
 
         mediaSession.setCallback(mediaSessionManager)
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        mediaSessionManager.onMediaButtonEvent(intent)
+        return super.onStartCommand(intent, flags, startId)
     }
 
     override fun onLoadChildren(p0: String, p1: Result<MutableList<MediaBrowser.MediaItem>>) {
@@ -52,8 +62,14 @@ class MusicPlayerService : MediaBrowserService() {
         return BrowserRoot(MUSIC_ROOT_ID, null)
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        stopSelf()
+    }
+
     companion object {
         const val MUSIC_ROOT_ID = "MUSIC_ROOT_ID"
+        const val MUSIC_PROGRESS_UPDATE = "MUSIC_PROGRESS_UPDATE"
         @JvmField val TAG: String = MusicPlayerService::class.java.simpleName
     }
 }

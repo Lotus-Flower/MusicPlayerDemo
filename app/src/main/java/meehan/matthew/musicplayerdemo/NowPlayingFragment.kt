@@ -10,14 +10,19 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import com.squareup.picasso.Picasso
 import kotlinx.android.synthetic.main.fragment_now_playing.*
+import java.util.*
+
 
 class NowPlayingFragment : Fragment() {
 
     private lateinit var mediaBrowser: MediaBrowser
+
     private val callback: MediaBrowser.SubscriptionCallback = object : MediaBrowser.SubscriptionCallback() {
         override fun onChildrenLoaded(parentId: String, children: MutableList<MediaBrowser.MediaItem>) {
             super.onChildrenLoaded(parentId, children)
@@ -33,9 +38,18 @@ class NowPlayingFragment : Fragment() {
         override fun onPlaybackStateChanged(state: PlaybackState?) {
             super.onPlaybackStateChanged(state)
             updateButtonUI()
+            when (requireActivity().mediaController?.playbackState?.state) {
+                PlaybackState.STATE_PLAYING -> requireActivity().mediaController?.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)?.let { now_playing_seek_bar.max = it.toInt() }
+            }
+        }
+
+        override fun onSessionEvent(event: String, extras: Bundle?) {
+            super.onSessionEvent(event, extras)
+            when (event) {
+                MusicPlayerService.MUSIC_PROGRESS_UPDATE -> extras?.getInt(MusicPlayerService.MUSIC_PROGRESS_UPDATE)?.let { updateMusicProgress(it) }
+            }
         }
     }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,6 +113,20 @@ class NowPlayingFragment : Fragment() {
         now_playing_next_button.setOnClickListener {
             requireActivity().mediaController.transportControls.skipToNext()
         }
+
+        now_playing_seek_bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener{
+            override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
+                if (p2) {
+                    requireActivity().mediaController.transportControls.seekTo(p1.toLong())
+                }
+            }
+
+            override fun onStartTrackingTouch(p0: SeekBar?) {
+            }
+
+            override fun onStopTrackingTouch(p0: SeekBar?) {
+            }
+        })
     }
 
     private fun updateButtonUI() {
@@ -115,7 +143,7 @@ class NowPlayingFragment : Fragment() {
     private fun setupMetadataUI(metadata: MediaMetadata?) {
         now_playing_title_text_view.text = metadata?.description?.title
         now_playing_artist_text_view.text = metadata?.description?.subtitle
-        now_playing_image_view.setImageURI(metadata?.description?.iconUri)
+        Picasso.get().load(metadata?.description?.iconUri).into(now_playing_image_view)
     }
 
     private fun createMediaBrowser() {
@@ -142,11 +170,19 @@ class NowPlayingFragment : Fragment() {
                         } else {
                             requireActivity().mediaController.registerCallback(controllerCallback)
                         }
+
+                        when (requireActivity().mediaController?.playbackState?.state) {
+                            PlaybackState.STATE_PLAYING -> requireActivity().mediaController?.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)?.let { now_playing_seek_bar.max = it.toInt() }
+                        }
                     }
                 }
             },
             null
         )
+    }
+
+    private fun updateMusicProgress(currentProgress: Int) {
+        now_playing_seek_bar.progress = currentProgress
     }
 
     override fun onDestroy() {

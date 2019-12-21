@@ -11,6 +11,8 @@ import android.media.session.MediaController
 import android.media.session.PlaybackState
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Message
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -48,9 +50,12 @@ class SongListFragment : Fragment() {
         override fun onPlaybackStateChanged(state: PlaybackState?) {
             super.onPlaybackStateChanged(state)
             setupButtonUI()
+
+            when (state?.state) {
+                PlaybackState.STATE_PLAYING -> showBottomSheet()
+            }
         }
     }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,6 +83,8 @@ class SongListFragment : Fragment() {
     private fun setupUI() {
         setupRecyclerView()
         setBottomSheetBehavior()
+        hideBottomSheet()
+
         current_song_play_button.setOnClickListener {
             when (requireActivity().mediaController?.playbackState?.state) {
                 PlaybackState.STATE_PAUSED -> {
@@ -101,13 +108,15 @@ class SongListFragment : Fragment() {
     }
 
     private fun updateAdapter(songsList: MutableList<MediaBrowser.MediaItem>) {
-        songAdapter = SongRecyclerAdapter(songsList)
+        songAdapter = SongRecyclerAdapter(songsList) {
+            requireActivity().mediaController?.transportControls?.playFromMediaId(it.mediaId, null)
+        }
         song_recycler.adapter = songAdapter
     }
 
     private fun setupRecyclerView() {
 
-        songAdapter = SongRecyclerAdapter(ArrayList())
+        songAdapter = SongRecyclerAdapter(ArrayList()) {}
 
         song_recycler.apply {
             setHasFixedSize(true)
@@ -169,6 +178,10 @@ class SongListFragment : Fragment() {
                             requireActivity().mediaController = mediaController
                         } else {
                             requireActivity().mediaController?.registerCallback(controllerCallback)
+                        }
+
+                        when (requireActivity().mediaController?.playbackState?.state) {
+                            PlaybackState.STATE_PLAYING -> showBottomSheet()
                         }
                     }
                 }
@@ -262,6 +275,16 @@ class SongListFragment : Fragment() {
                 current_song_play_button.setImageDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.ic_pause_black_24dp))
             }
         }
+    }
+
+    private fun showBottomSheet() {
+        bottom_sheet_card.visibility = View.VISIBLE
+        current_song_linear_layout.visibility = View.VISIBLE
+    }
+
+    private fun hideBottomSheet() {
+        bottom_sheet_card.visibility = View.GONE
+        current_song_linear_layout.visibility = View.GONE
     }
 
     override fun onDestroy() {
