@@ -295,6 +295,7 @@ class SongListFragment : Fragment() {
     private fun showBottomSheet() {
         bottom_sheet_card.visibility = View.VISIBLE
         current_song_linear_layout.visibility = View.VISIBLE
+        current_song_title_text_view.isSelected = true
     }
 
     private fun hideBottomSheet() {

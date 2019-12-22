@@ -95,6 +95,8 @@ class NowPlayingFragment : Fragment() {
     }
 
     private fun setupUI() {
+        now_playing_title_text_view.isSelected = true
+        
         now_playing_previous_button.setOnClickListener {
             requireActivity().mediaController.transportControls.skipToPrevious()
         }
