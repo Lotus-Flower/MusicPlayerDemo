@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Message
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -25,14 +26,14 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import kotlinx.android.synthetic.main.current_song_bottom_sheet.*
-import kotlinx.android.synthetic.main.fragment_now_playing.*
 import kotlinx.android.synthetic.main.fragment_song_list.*
 
 class SongListFragment : Fragment() {
 
     private lateinit var songAdapter: SongRecyclerAdapter
 
-    private lateinit var mediaBrowser: MediaBrowser
+    private var mediaBrowser: MediaBrowser? = null
+
     private val callback: MediaBrowser.SubscriptionCallback = object : MediaBrowser.SubscriptionCallback() {
         override fun onChildrenLoaded(parentId: String, children: MutableList<MediaBrowser.MediaItem>) {
             super.onChildrenLoaded(parentId, children)
@@ -129,13 +130,24 @@ class SongListFragment : Fragment() {
     private fun setBottomSheetBehavior() {
         val behavior = BottomSheetBehavior.from(bottom_sheet_card)
         behavior.isFitToContents = false
+        behavior.setBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
+            override fun onSlide(p0: View, p1: Float) {
+            }
+
+            override fun onStateChanged(p0: View, p1: Int) {
+                when (p1) {
+                    BottomSheetBehavior.STATE_DRAGGING -> behavior.state = BottomSheetBehavior.STATE_COLLAPSED
+                    else -> {}
+                }
+            }
+        })
     }
 
     override fun onStart() {
         super.onStart()
         if (checkPermissions()) {
-            mediaBrowser.connect()
-            mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
+            mediaBrowser?.connect()
+            mediaBrowser?.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
             requireActivity().mediaController?.registerCallback(controllerCallback)
             setupButtonUI()
         }
@@ -145,8 +157,8 @@ class SongListFragment : Fragment() {
         super.onStop()
         if (checkPermissions()) {
             requireActivity().mediaController?.unregisterCallback(controllerCallback)
-            mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
-            mediaBrowser.disconnect()
+            mediaBrowser?.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
+            mediaBrowser?.disconnect()
         }
     }
 
@@ -164,18 +176,20 @@ class SongListFragment : Fragment() {
                     super.onConnected()
 
                     // Get the token for the MediaSession
-                    mediaBrowser.sessionToken.also { token ->
+                    mediaBrowser?.sessionToken.also { token ->
 
                         if (requireActivity().mediaController == null) {
                             // Create a MediaControllerCompat
-                            val mediaController = MediaController(
-                                this@SongListFragment.requireContext(), // Context
-                                token
-                            )
+                            token?.let {
+                                val mediaController = MediaController(
+                                    this@SongListFragment.requireContext(), // Context
+                                    token
+                                )
 
-                            mediaController.registerCallback(controllerCallback)
-                            // Save the controller
-                            requireActivity().mediaController = mediaController
+                                mediaController.registerCallback(controllerCallback)
+                                // Save the controller
+                                requireActivity().mediaController = mediaController
+                            }
                         } else {
                             requireActivity().mediaController?.registerCallback(controllerCallback)
                         }
@@ -205,12 +219,10 @@ class SongListFragment : Fragment() {
                 ) {
                     showDialog()
                 } else {
-                    ActivityCompat
-                        .requestPermissions(
-                            requireActivity(),
-                            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                            REQUEST_READ_EXTERNAL_STORAGE
-                        )
+                    requestPermissions(
+                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                        REQUEST_READ_EXTERNAL_STORAGE
+                    )
                 }
                 return false
             } else {
@@ -226,20 +238,23 @@ class SongListFragment : Fragment() {
         permissions: Array<String>,
         grantResults: IntArray
     ) {
-        when (requestCode) {
-            REQUEST_READ_EXTERNAL_STORAGE -> if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                createMediaBrowser()
-                mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
-            } else {
-                Toast.makeText(
-                    context, "Permission Denied",
-                    Toast.LENGTH_SHORT
-                ).show()
+        if (grantResults.isNotEmpty()){
+            when (requestCode) {
+                REQUEST_READ_EXTERNAL_STORAGE -> if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    createMediaBrowser()
+                    mediaBrowser?.connect()
+                    mediaBrowser?.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
+                } else {
+                    Toast.makeText(
+                        context, "Permission Denied",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                else -> super.onRequestPermissionsResult(
+                    requestCode, permissions,
+                    grantResults
+                )
             }
-            else -> super.onRequestPermissionsResult(
-                requestCode, permissions,
-                grantResults
-            )
         }
     }
 

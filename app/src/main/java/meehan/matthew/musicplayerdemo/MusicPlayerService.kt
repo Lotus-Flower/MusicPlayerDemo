@@ -1,5 +1,6 @@
 package meehan.matthew.musicplayerdemo
 
+import android.app.Service
 import android.content.Intent
 import android.media.MediaPlayer
 import android.media.browse.MediaBrowser
@@ -7,7 +8,6 @@ import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Bundle
 import android.service.media.MediaBrowserService
-import androidx.media.session.MediaButtonReceiver
 
 class MusicPlayerService : MediaBrowserService() {
 
@@ -50,7 +50,7 @@ class MusicPlayerService : MediaBrowserService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         mediaSessionManager.onMediaButtonEvent(intent)
-        return super.onStartCommand(intent, flags, startId)
+        return Service.START_STICKY
     }
 
     override fun onLoadChildren(p0: String, p1: Result<MutableList<MediaBrowser.MediaItem>>) {

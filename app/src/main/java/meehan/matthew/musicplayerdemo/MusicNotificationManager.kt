@@ -78,6 +78,7 @@ class MusicNotificationManager(private val musicPlayerService: MusicPlayerServic
             .addAction(nextAction)
             .setOngoing(isPlaying)
             .setOnlyAlertOnce(true)
+            .setBadgeIconType(Notification.BADGE_ICON_NONE)
 
         return builder
     }
@@ -92,7 +93,10 @@ class MusicNotificationManager(private val musicPlayerService: MusicPlayerServic
     @RequiresApi(Build.VERSION_CODES.O)
     private fun createChannel() {
         if (null == notificationManager.getNotificationChannel(CHANNEL_ID)) {
-            notificationManager.createNotificationChannel(NotificationChannel(CHANNEL_ID, CANONICAL_NAME, NotificationManager.IMPORTANCE_LOW))
+            val notificationChannel = NotificationChannel(CHANNEL_ID, CANONICAL_NAME, NotificationManager.IMPORTANCE_LOW)
+            notificationChannel.setShowBadge(false)
+            notificationChannel.enableVibration(false)
+            notificationManager.createNotificationChannel(notificationChannel)
         }
     }
 

@@ -12,9 +12,10 @@ import android.webkit.MimeTypeMap
 
 class MusicProvider(private val context: Context) {
 
-    val songsList = ArrayList<MediaBrowser.MediaItem>()
+    var songsList = ArrayList<MediaBrowser.MediaItem>()
 
     fun getMp3Songs() {
+        songsList = ArrayList()
         val allSongsUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val selectionMimeType = MediaStore.Files.FileColumns.MIME_TYPE + "=?"
         val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension("mp3")

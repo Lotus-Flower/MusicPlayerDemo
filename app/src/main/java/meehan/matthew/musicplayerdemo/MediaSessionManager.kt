@@ -63,10 +63,10 @@ class MediaSessionManager(
     override fun onPlay() {
         super.onPlay()
         player.start()
-        setSessionPlaybackState(PlaybackState.STATE_PLAYING)
         mediaSession.isActive = true
+        setSessionPlaybackState(PlaybackState.STATE_PLAYING)
         startMusicProgress()
-        if (serviceInStartedState) startService() else updateNotification()
+        if (!serviceInStartedState) startService() else updateNotification()
     }
 
     override fun onPause() {
@@ -167,7 +167,9 @@ class MediaSessionManager(
             currentSong?.description?.subtitle.toString(), mediaSession.sessionToken,
             PlaybackStateCompat.STATE_PLAYING)
 
-        notification?.let { musicPlayerService.startForeground(MusicNotificationManager.NOTIFICATION_ID, it) }
+        notification?.let {
+            musicPlayerService.startForeground(MusicNotificationManager.NOTIFICATION_ID, it)
+        }
     }
 
     private fun updateNotification() {
@@ -207,20 +209,23 @@ class MediaSessionManager(
     }
 
     override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
-        val keyEvent: KeyEvent = mediaButtonEvent?.extras?.get(Intent.EXTRA_KEY_EVENT) as KeyEvent
-        when (keyEvent.action == KeyEvent.ACTION_DOWN) {
-            true -> {
-                when (keyEvent.keyCode) {
-                    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                        when (mediaSession.controller.playbackState?.state) {
-                            PlaybackState.STATE_PLAYING -> this.onPause()
-                            PlaybackState.STATE_PAUSED -> this.onPlay()
+        val event = mediaButtonEvent?.extras?.get(Intent.EXTRA_KEY_EVENT)
+        event?.let {
+            val keyEvent = event as KeyEvent
+            when (keyEvent.action == KeyEvent.ACTION_DOWN) {
+                true -> {
+                    when (keyEvent.keyCode) {
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                            when (mediaSession.controller.playbackState?.state) {
+                                PlaybackState.STATE_PLAYING -> this.onPause()
+                                PlaybackState.STATE_PAUSED -> this.onPlay()
+                            }
                         }
+                        KeyEvent.KEYCODE_MEDIA_PLAY -> this.onPlay()
+                        KeyEvent.KEYCODE_MEDIA_PAUSE -> this.onPause()
+                        KeyEvent.KEYCODE_MEDIA_NEXT -> this.onSkipToNext()
+                        KeyEvent.KEYCODE_MEDIA_PREVIOUS -> this.onSkipToPrevious()
                     }
-                    KeyEvent.KEYCODE_MEDIA_PLAY -> this.onPlay()
-                    KeyEvent.KEYCODE_MEDIA_PAUSE -> this.onPause()
-                    KeyEvent.KEYCODE_MEDIA_NEXT -> this.onSkipToNext()
-                    KeyEvent.KEYCODE_MEDIA_PREVIOUS -> this.onSkipToPrevious()
                 }
             }
         }

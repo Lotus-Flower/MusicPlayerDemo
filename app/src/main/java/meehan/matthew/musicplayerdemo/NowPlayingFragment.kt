@@ -21,7 +21,7 @@ import java.util.*
 
 class NowPlayingFragment : Fragment() {
 
-    private lateinit var mediaBrowser: MediaBrowser
+    private var mediaBrowser: MediaBrowser? = null
 
     private val callback: MediaBrowser.SubscriptionCallback = object : MediaBrowser.SubscriptionCallback() {
         override fun onChildrenLoaded(parentId: String, children: MutableList<MediaBrowser.MediaItem>) {
@@ -60,8 +60,8 @@ class NowPlayingFragment : Fragment() {
     override fun onStart() {
         super.onStart()
 
-        mediaBrowser.connect()
-        mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
+        mediaBrowser?.connect()
+        mediaBrowser?.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
         requireActivity().mediaController?.registerCallback(controllerCallback)
         updateButtonUI()
     }
@@ -75,8 +75,8 @@ class NowPlayingFragment : Fragment() {
         super.onStop()
 
         requireActivity().mediaController?.unregisterCallback(controllerCallback)
-        mediaBrowser.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
-        mediaBrowser.disconnect()
+        mediaBrowser?.subscribe(MusicPlayerService.MUSIC_ROOT_ID, callback)
+        mediaBrowser?.disconnect()
     }
 
     override fun onCreateView(
@@ -155,18 +155,20 @@ class NowPlayingFragment : Fragment() {
                     super.onConnected()
 
                     // Get the token for the MediaSession
-                    mediaBrowser.sessionToken.also { token ->
+                    mediaBrowser?.sessionToken.also { token ->
 
                         if (requireActivity().mediaController == null) {
                             // Create a MediaControllerCompat
-                            val mediaController = MediaController(
-                                this@NowPlayingFragment.requireContext(), // Context
-                                token
-                            )
+                            token?.let {
+                                val mediaController = MediaController(
+                                    this@NowPlayingFragment.requireContext(), // Context
+                                    token
+                                )
 
-                            mediaController.registerCallback(controllerCallback)
-                            // Save the controller
-                            requireActivity().mediaController = mediaController
+                                mediaController.registerCallback(controllerCallback)
+                                // Save the controller
+                                requireActivity().mediaController = mediaController
+                            }
                         } else {
                             requireActivity().mediaController.registerCallback(controllerCallback)
                         }
