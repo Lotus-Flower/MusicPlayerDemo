@@ -43,6 +43,9 @@ class MediaSessionManager(
             player.setOnCompletionListener {
                 onSkipToNext()
             }
+            player.setOnErrorListener { _, _, _ ->
+                true
+            }
             setSessionPlaybackState(PlaybackState.STATE_PAUSED)
         }
 
@@ -79,8 +82,11 @@ class MediaSessionManager(
 
     override fun onSkipToNext() {
         super.onSkipToNext()
-        if (musicProvider.songsList.indexOf(currentSong) < musicProvider.songsList.size - 1) {
-            currentSong = musicProvider.songsList[musicProvider.songsList.indexOf(currentSong) + 1]
+        val currentIndex = musicProvider.songsList.indexOfFirst {
+            it.mediaId == currentSong?.mediaId
+        }
+        if (currentIndex < musicProvider.songsList.size - 1) {
+            currentSong = musicProvider.songsList[currentIndex + 1]
             currentSong?.description?.mediaUri?.let {
                 player.reset()
                 player.setDataSource(musicPlayerService, it)
@@ -93,8 +99,11 @@ class MediaSessionManager(
 
     override fun onSkipToPrevious() {
         super.onSkipToPrevious()
-        if (musicProvider.songsList.indexOf(currentSong) > 0) {
-            currentSong = musicProvider.songsList[musicProvider.songsList.indexOf(currentSong) - 1]
+        val currentIndex = musicProvider.songsList.indexOfFirst {
+            it.mediaId == currentSong?.mediaId
+        }
+        if (currentIndex > 0) {
+            currentSong = musicProvider.songsList[currentIndex - 1]
             currentSong?.description?.mediaUri?.let {
                 player.reset()
                 player.setDataSource(musicPlayerService, it)
